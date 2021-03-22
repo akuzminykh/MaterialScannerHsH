@@ -29,11 +29,11 @@ Vec orientationCorrection(const Vec& v, const double factor,
 	const int x, const int y, const size_t width, const size_t height)
 {
 	const double rotFacY = factor;
-	const double degY = (static_cast<double>(x) / width * 2.0 - 1.0) * rotFacY;
+	const double degY = (static_cast<double>(x) / (width-1) * 2.0 - 1.0) * rotFacY;
 	const double radY = degreesToRadians(degY);
 
 	const double rotFacX = factor * (static_cast<double>(height) / width);
-	const double degX = (static_cast<double>(y) / height * 2.0 - 1.0) * rotFacX;
+	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
 	const double radX = degreesToRadians(degX);
 
 	// Calculating these matrices is super expensive, especially for each pixel.
