@@ -67,6 +67,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	const size_t nImages = dataset.size();
 	const size_t width = dataset[0].width;
 	const size_t height = dataset[0].height;
+
 	vector<Vec> lightDirs;
 	lightDirs.reserve(dataset.size());
 
@@ -96,14 +97,11 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	vector< future< vector<double> > > futures;
 	futures.reserve(height);
 
+	vector<size_t> correctedNormals;
+	correctedNormals.reserve(width * 3);
+
+
 	cout << "Calculating ... (" << parallelism << " threads)\n";
-
-	cout << "Width: (" << width << " )\n";
-
-	vector<double> correctedNormals;
-	correctedNormals.reserve(width * 3 );
-	cout << "Corrected Normals size: " << correctedNormals.size() << "\n";
-
 
 	for (int y = 0; y < height; ++y) {
 
@@ -114,7 +112,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 				row.reserve(width * 3);
 
 				int index = y * width;
-				for (int x = 0; x < width;) {
+				for (int x = 0; x < width; ++x) {
 
 					vector<double> reflections;
 					reflections.reserve(nImages);
@@ -131,7 +129,9 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 					
 					if (y == 0) {
-						Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height).normalize();
+
+						const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height).normalize();
+						//cout << "Corrected Normals in Spalte" << y <<
 						correctedNormals.push_back(normal[0]);
 						correctedNormals.push_back(normal[1]);
 						correctedNormals.push_back(normal[2]);
@@ -143,20 +143,10 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					// assert(correctedNormals.size() > correctedNormals.capacity());
 					
 		
-					row.push_back(correctedNormals[(x * 3)]);
+					row.push_back(correctedNormals[x * 3]);
 					row.push_back(correctedNormals[x * 3 + 1]);
 					row.push_back(correctedNormals[x * 3 + 2]);
 
-				}
-
-				cout << y;
-
-				if (y == 0) {
-
-					cout << "Hi";
-					cout << "Capacity: " << correctedNormals.capacity() << "\n";
-					cout << "Size: " << correctedNormals.size() << "\n";
-					
 				}
 				
 
