@@ -68,6 +68,8 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	const size_t width = dataset[0].width;
 	const size_t height = dataset[0].height;
 
+	cout << "Dataset Size: (" << dataset.size() << " )\n";
+
 	vector<Vec> lightDirs;
 	lightDirs.reserve(dataset.size());
 
@@ -99,10 +101,17 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	cout << "Calculating ... (" << parallelism << " threads)\n";
 
+	cout << "Width: (" << width << " )\n";
+
+	vector<Vec> correctedNormals;
+	correctedNormals.reserve(width);
+	cout << "Correctede Normals size: " << correctedNormals.size() << "\n";
+
+
 	for (int y = 0; y < height; ++y) {
 
 		future<vector<double>> future = pool.enqueue(
-			[y, width, height, nImages, correctionFactor, &dataset, &L_transposed, &L_inverse] {
+			[y, width, height, nImages, correctionFactor, &dataset, &L_transposed, &L_inverse, &correctedNormals] {
 				
 				vector<double> row;
 				row.reserve(width * 3);
@@ -122,12 +131,27 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					const Vec L_transposeI = L_transposed * Vec{ reflections };
 					const Vec n = L_inverse * L_transposeI;
 
+
+					
+					if (y == 0) {
+						correctedNormals.push_back(orientationCorrection(n, correctionFactor, x, y, width, height).normalize());
+						// cout << "Corrected Normals in Spalte" << y << ": (" << correctedNormals[x][0] << "," << correctedNormals[x][1]  << "," << correctedNormals[x][2]  <<"\n";
+
+					}
+					
 					const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height).normalize();
 
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
 					row.push_back(normal[2]);
 				}
+
+				if (y == 0) {
+					cout << "Size: " << correctedNormals.size() << "\n";
+					correctedNormals.push_back(Vec{ 1,2,3 });
+					cout << "Size: " << correctedNormals.size() << "\n";
+				}
+				
 
 				return row;
 			}
