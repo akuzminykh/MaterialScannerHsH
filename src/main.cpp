@@ -39,6 +39,7 @@ Vec orientationCorrection(const Vec& v, const double factor,
 	const double cos_radY = cos(radY);
 	const double sin_radY = sin(radY);
 
+
 	Mat rotY{
 		cos_radY,	0.0, sin_radY,
 		0.0,		1.0, 0.0,
@@ -52,6 +53,12 @@ Vec orientationCorrection(const Vec& v, const double factor,
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
 	// TODO: check if it's the same for all
+	for (int i = 0; i < dataset.size(); ++i) {
+		if (i != dataset.size() - 1) {
+			assert(dataset[i].width == dataset[i + 1].width);
+			assert(dataset[i].height == dataset[i + 1].height);
+		}
+	}
 	const size_t nImages = dataset.size();
 	const size_t width = dataset[0].width;
 	const size_t height = dataset[0].height;
@@ -101,9 +108,6 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 				
 				for (int x = 0; x < width; ++x) {
 
-					//Melina
-
-
 					vector<double> reflections;
 					reflections.reserve(nImages);
 
@@ -117,6 +121,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					const Vec n = L_inverse * L_transposeI;
 
 					const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height, rotX).normalize();
+					//cout << normal[0] << "  " << normal[1] << "  " << normal[2] <<"\n";
 
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
