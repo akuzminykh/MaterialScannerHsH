@@ -1,3 +1,3 @@
 [submodule "src/ThreadPool"]
-	path = src/ThreadPool
+	path = submodules/ThreadPool
 	url = https://github.com/progschj/ThreadPool.git
