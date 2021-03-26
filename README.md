@@ -9,8 +9,6 @@ git clone https://github.com/akuzminykh/MaterialScannerHsH.git
 cd .\MaterialScannerHsH\
 git submodule update --init
 
-Hier bitte die Datei "src/ThreadPool/example.cpp" löschen.
-
 Jetzt sollte Visual Studio gestartet werden. Dabei bitte im Startfenster "Continue without code" klicken.
 Nun bitte "File -> New -> Project From Existing Code..." klicken. Als Typ sollte "Visual C++" ausgewählt sein.
 Im nächsten Fesnter dann "Project file location:" auf den Ordner "MaterialScannerHsH" setzen.
@@ -18,8 +16,9 @@ Der Projektname sollte "MaterialScannerHsH" lauten. Im nächsten Fenster das Dro
 auf "Console application project" setzen. Anschließend zweimal "Next >" und schließlich "Finish".
 
 Im "Solution Explorer" sollte nun das Projekt zu sehen sein. Im Ordner "Source Files" liegt z. B. "main.cpp".
+Bitte die Datei "example.cpp" aus dem Projekt nehmen ("remove" ohne Löschen).
 
-Oben sin zwei Dropdowns, die jeweils auf "Debug" und auf "x86" eingestellt sind.
+Oben sind zwei Dropdowns, die jeweils auf "Debug" und auf "x86" eingestellt sind.
 Diese müssen jeweils auf "Release" und auf "x64" gesetzt werden. Jetzt muss der C++17 Compiler für das Projekt gesetzt werden.
 Dazu Rechtsklick auf das Projekt ("MaterialScannerHsH"), dann nach "Properties -> Configuration Properties -> General" navigieren.
 Dort muss nun für "C++ Language Standard" der Standard "ISO C++17 Standard (std:c++17)" ausgewählt werden. Hier "Apply" nicht vergessen.
@@ -36,6 +35,7 @@ Mögliche Probleme:
   der Umgebungsvariablen "Path" aufnehmen, oder beim Aufruf den ganzen Pfad zur "vcpkg.exe" angeben.
 - Fehler beim Ausführen. Lösung: Ggf. müssen einige Komponenten in Visual Studio hinzugefügt werden. Bitte die Fehlermeldung lesen.
   Es könnten z. B. "C++ ATL for latest v142 build tools (x86 & x64)" und/oder "C++ MFC for latest v142 build tools (x86 & x64)" fehlen.
+- Es wird eine alte Windows 10 SDK benutzt. Lösung: Die neueste Komponente zu Visual Studio hinzufügen, z. B. "Windows 10 SDK (10.0.19041.0)".
 
 An dieser Stelle sollte Visual Studio neugestartet und "Build -> Build Solution" ausgeführt werden.
 Im Ordner "x64/Release" sollte nun "MaterialScannerHsH.exe" zu finden sein. Zum Ausprobieren, im Ordner diesen Befehl ausführen:
