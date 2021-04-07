@@ -52,11 +52,10 @@ Vec orientationCorrection(const Vec& v, const double factor,
 
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
-	// TODO: check if it's the same for all
-	for (int i = 0; i < dataset.size(); ++i) {
+	for (size_t i = 0; i < dataset.size(); ++i) {
 		if (i != dataset.size() - 1) {
-			assert(dataset[i].width == dataset[i + 1].width);
-			assert(dataset[i].height == dataset[i + 1].height);
+			assert(dataset[i].width == dataset[i+1].width);
+			assert(dataset[i].height == dataset[i+1].height);
 		}
 	}
 	const size_t nImages = dataset.size();
