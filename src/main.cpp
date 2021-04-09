@@ -35,29 +35,29 @@ Vec orientationCorrection(const Vec& v, const double factor,
 	const double rotFacX = factor * (static_cast<double>(height) / width);
 	const double degX = (static_cast<double>(y) / height * 2.0 - 1.0) * rotFacX;
 	const double radX = degreesToRadians(degX);
-
-	// Calculating these matrices is super expensive, especially for each pixel.
-	// Need to optimize that. TODO: Cache already known values.
+	
+       // Calculating these matrices is super expensive, especially for each pixel.
+       // Need to optimize that. TODO: Cache already known values.
 
 	const double cos_radY = cos(radY);
 	const double sin_radY = sin(radY);
-
-	Mat rotY{
-		cos_radY,	0.0, sin_radY,
-		0.0,		1.0, 0.0,
-		-sin_radY,	0.0, cos_radY
-	};
-
+	
+		Mat rotY{
+		cos_radY,       0.0, sin_radY,
+		0.0,            1.0, 0.0,
+		-sin_radY,      0.0, cos_radY
+		};
+	
 	const double cos_radX = cos(radX);
 	const double sin_radX = sin(radX);
-
-	Mat rotX{
+	
+		Mat rotX{
 		1.0, 0.0,		0.0,
-		0.0, cos_radX,	-sin_radX,
-		0.0, sin_radX,	cos_radX
-	};
-
-	return rotX * (rotY * v);
+		0.0, cos_radX,  -sin_radX,
+		0.0, sin_radX,  cos_radX
+		 };
+	
+		return rotX * (rotY * v);
 }
 
 
@@ -99,10 +99,27 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	cout << "Calculating ... (" << parallelism << " threads)\n";
 
+	vector<Mat> rotationsY;
+	// Mat rotsY[width * 9];
+
 	for (int y = 0; y < height; ++y) {
 
+		const double rotFacX = correctionFactor * (static_cast<double>(height) / width);
+		const double degX = (static_cast<double>(y) / (height - 1) * 2.0 - 1.0) * rotFacX;
+		const double radX = degreesToRadians(degX);
+
+		const double cos_radX = cos(radX);
+		const double sin_radX = sin(radX);
+
+		Mat rotX{
+			1.0, 0.0,		0.0,
+			0.0, cos_radX,	-sin_radX,
+			0.0, sin_radX,	cos_radX
+		};
+
+
 		future<vector<double>> future = pool.enqueue(
-			[y, width, height, nImages, correctionFactor, &dataset, &L_transposed, &L_inverse] {
+			[y, width, height, nImages, correctionFactor, &dataset, &L_transposed, &L_inverse, &rotationsY, &rotX] {
 				
 				vector<double> row;
 				row.reserve(width * 3);
@@ -122,7 +139,29 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					const Vec L_transposeI = L_transposed * Vec{ reflections };
 					const Vec n = L_inverse * L_transposeI;
 
-					const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height).normalize();
+
+					if (y == 0) {
+
+						double rotFacY = correctionFactor;
+						double degY = (static_cast<double>(x) / (width - 1) * 2.0 - 1.0) * rotFacY;
+						double radY = degreesToRadians(degY);
+
+						double cos_radY = cos(radY);
+						double sin_radY = sin(radY);
+
+						Mat rotY{
+							cos_radY,	0.0, sin_radY,
+							0.0,		1.0, 0.0,
+							-sin_radY,	0.0, cos_radY
+						};
+
+						rotationsY.push_back(rotY);
+
+					}
+					
+					// const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height).normalize();
+					const Vec normal = rotX * (rotationsY[x] * n);
+
 
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
@@ -132,6 +171,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 				return row;
 			}
 		);
+
 
 		futures.push_back(std::move(future));
 	}
