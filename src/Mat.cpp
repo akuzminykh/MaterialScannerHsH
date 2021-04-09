@@ -1,6 +1,9 @@
 #include "Mat.hpp"
 using std::vector;
 
+#include <iostream>
+using std::cout;
+using std::cerr;
 
 Mat Mat::transpose() const {
 	vector<double> v;
@@ -113,7 +116,11 @@ Mat Mat::operator*(const Mat& other) const {
 
 
 Vec Mat::operator*(const Vec& v) const {
+	
+	cout << "v.n:(" << v.n << ")\n";
+	cout << "N:(" << N << ")\n";
 	assert(N == v.n);
+
 
 	vector<double> v_new;
 	v_new.reserve(N);

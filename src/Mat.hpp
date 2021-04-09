@@ -11,7 +11,6 @@ struct Mat {
 	const std::size_t N;
 	const std::vector<double> data;
 
-
 	Mat(std::size_t M, std::size_t N, const std::vector<double> & data)
 		: M(M), N(N), data(data)
 	{
