@@ -81,6 +81,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	const Mat L{ nImages, 3, L_data };
 	const Mat L_transposed = L.transpose();
 	const Mat L_inverse = (L_transposed * L).inverse();
+	vector
 
 	vector<double> normalsData;
 	normalsData.reserve(height * width * 3);
