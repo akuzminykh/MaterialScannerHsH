@@ -21,32 +21,48 @@ using std::cos;
 #include "../submodules/ThreadPool/ThreadPool.h"
 using std::future;
 
+#include <time.h>
+
+Mat matRotX(const double factor, const int y, const size_t height, const size_t width) {
+	
+	const double rotFacX = factor * (static_cast<double>(height) / width);
+	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
+	const double radX = degreesToRadians(degX);
+
+	const double cos_radX = cos(radX);
+	const double sin_radX = sin(radX);
+
+	Mat rotX{
+		1.0, 0.0,		0.0,
+		0.0, cos_radX,	-sin_radX,
+		0.0, sin_radX,	cos_radX
+	};
+	return rotX;
+}
+
+Mat matRotY(const double factor, const int x, const size_t width) {
+
+		const double rotFacY = factor;
+		const double degY = (static_cast<double>(x) / (width - 1) * 2.0 - 1.0) * rotFacY;
+		const double radY = degreesToRadians(degY);
+
+		const double cos_radY = cos(radY);
+		const double sin_radY = sin(radY);
+
+		Mat rotY{
+			cos_radY,	0.0, sin_radY,
+			0.0,		1.0, 0.0,
+			-sin_radY,	0.0, cos_radY
+		};
+		return rotY;
+}
 
 // Rotates v around Y by factor * someValue. The values x and width
 // are use to calculate someValue: x that is between 0 and width is
 // scaled into [-1, 1]. Then a similar rotation around X happens.
-Vec orientationCorrection(const Vec& v, const double factor,
-	const int x, const int y, const size_t width, const size_t height, const Mat& rotX)
+Vec orientationCorrection(const Vec& v, const int x, const Mat& rotX, const vector<Mat>& rotY)
 {
-
-	const double rotFacY = factor;
-	const double degY = (static_cast<double>(x) / (width-1) * 2.0 - 1.0) * rotFacY;
-	const double radY = degreesToRadians(degY);
-
-		// Calculating these matrices is super expensive, especially for each pixel.
-	// Need to optimize that. TODO: Cache already known values.
-
-	const double cos_radY = cos(radY);
-	const double sin_radY = sin(radY);
-
-
-	Mat rotY{
-		cos_radY,	0.0, sin_radY,
-		0.0,		1.0, 0.0,
-		-sin_radY,	0.0, cos_radY
-	};
-
-	return rotX * (rotY * v);
+	return rotX * (rotY[x] * v);
 }
 
 
@@ -81,8 +97,9 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	const Mat L{ nImages, 3, L_data };
 	const Mat L_transposed = L.transpose();
 	const Mat L_inverse = (L_transposed * L).inverse();
-	vector
-
+	const Mat L_inverseTransposed = L_inverse * L_transposed;
+	
+	
 	vector<double> normalsData;
 	normalsData.reserve(height * width * 3);
 
@@ -94,12 +111,17 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	cout << "Calculating ... (" << parallelism << " threads)\n";
 
+	vector<Mat> rotY;
+	for (int x = 0; x < width; x++) {
+		rotY.push_back(matRotY(correctionFactor, x, width));
+	}
+
 	for (int y = 0; y < height; ++y) {
 
 		const Mat rotX = matRotX(correctionFactor, y, height, width);
-
+		
 		future<vector<double>> future = pool.enqueue(
-			[y, width, height, nImages, correctionFactor, &dataset, &L_transposed, &L_inverse, rotX] {
+			[y, width, height, nImages, correctionFactor, &dataset, &L_inverseTransposed, rotX, &rotY] {
 				
 				vector<double> row;
 				row.reserve(width * 3);
@@ -117,12 +139,11 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					++index;
 
 					// This is what you saw in the paper by Woodham (1980).
-					const Vec L_transposeI = L_transposed * Vec{ reflections };
-					const Vec n = L_inverse * L_transposeI;
+					
+					const Vec n = L_inverseTransposed * Vec{ reflections };
 
-					const Vec normal = orientationCorrection(n, correctionFactor, x, y, width, height, rotX).normalize();
+					const Vec normal = orientationCorrection(n, x, rotX, rotY).normalize();
 					//cout << normal[0] << "  " << normal[1] << "  " << normal[2] <<"\n";
-
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
 					row.push_back(normal[2]);
@@ -146,24 +167,10 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	return NormalMap{ width, height, normalsData };
 }
 
-Mat matRotX(const double factor, const int y, const size_t height, const size_t width) {
-	
-	const double rotFacX = factor * (static_cast<double>(height) / width);
-	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
-	const double radX = degreesToRadians(degX);
-
-	const double cos_radX = cos(radX);
-	const double sin_radX = sin(radX);
-
-	Mat rotX{
-		1.0, 0.0,		0.0,
-		0.0, cos_radX,	-sin_radX,
-		0.0, sin_radX,	cos_radX
-	};
-	return rotX;
-}
-
 int main(int argc, char* argv[]) {
+	double time1 = 0.0, tstart;     
+	tstart = clock();       
+		
 	if (argc != 4) {
 		cerr << "Pass a path to the dataset, path for the result and a factor for correction." << '\n';
 		return EXIT_FAILURE;
@@ -192,6 +199,9 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	
+	time1 += clock() - tstart;
+	time1 = time1 / CLOCKS_PER_SEC;
+	cout << "  time = " << time1 << " sec.";
 
 	return EXIT_SUCCESS;
 }
