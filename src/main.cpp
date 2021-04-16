@@ -25,7 +25,18 @@ using std::future;
 
 Mat matRotX(const double factor, const int y, const size_t height, const size_t width) {
 	
-	const double rotFacX = factor * (static_cast<double>(height-1) / (width-1));
+	size_t heightCalc = height;
+	size_t widthCalc = width;
+
+	//check if height and width are even numbers
+	if (height % 2 != 0) {
+		heightCalc - 1;
+	}
+	if (width % 2 != 0) {
+		widthCalc - 1;
+	}
+
+	const double rotFacX = factor * (static_cast<double>(heightCalc) / widthCalc);
 	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
 	const double radX = degreesToRadians(degX);
 
