@@ -21,22 +21,11 @@ using std::cos;
 #include "../submodules/ThreadPool/ThreadPool.h"
 using std::future;
 
-#include <time.h>
+#include <chrono>
 
-Mat matRotX(const double factor, const int y, const size_t height, const size_t width) {
-	
-	size_t heightCalc = height;
-	size_t widthCalc = width;
+Mat correctiveRotationX(const double factor, const int y, const size_t height, const size_t sizeRatio) {
 
-	//check if height and width are even numbers
-	if (height % 2 != 0) {
-		heightCalc - 1;
-	}
-	if (width % 2 != 0) {
-		widthCalc - 1;
-	}
-
-	const double rotFacX = factor * (static_cast<double>(heightCalc) / widthCalc);
+	const double rotFacX = factor * sizeRatio;
 	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
 	const double radX = degreesToRadians(degX);
 
@@ -51,26 +40,24 @@ Mat matRotX(const double factor, const int y, const size_t height, const size_t 
 	return rotX;
 }
 
-Mat matRotY(const double factor, const int x, const size_t width) {
+Mat correctiveRotationY(const double factor, const int x, const size_t width) {
 
-		const double rotFacY = factor;
-		const double degY = (static_cast<double>(x) / (width - 1) * 2.0 - 1.0) * rotFacY;
-		const double radY = degreesToRadians(degY);
+	const double rotFacY = factor;
+	const double degY = (static_cast<double>(x) / (width - 1) * 2.0 - 1.0) * rotFacY;
+	const double radY = degreesToRadians(degY);
 
-		const double cos_radY = cos(radY);
-		const double sin_radY = sin(radY);
+	const double cos_radY = cos(radY);
+	const double sin_radY = sin(radY);
 
-		Mat rotY{
-			cos_radY,	0.0, sin_radY,
-			0.0,		1.0, 0.0,
-			-sin_radY,	0.0, cos_radY
-		};
-		return rotY;
+	Mat rotY{
+		cos_radY,	0.0, sin_radY,
+		0.0,		1.0, 0.0,
+		-sin_radY,	0.0, cos_radY
+	};
+	return rotY;
 }
 
-// Rotates v around Y by factor * someValue. The values x and width
-// are use to calculate someValue: x that is between 0 and width is
-// scaled into [-1, 1]. Then a similar rotation around X happens.
+
 Vec orientationCorrection(const Vec& v, const int x, const Mat& rotX, const vector<Mat>& rotY)
 {
 	return rotX * (rotY[x] * v);
@@ -79,10 +66,9 @@ Vec orientationCorrection(const Vec& v, const int x, const Mat& rotX, const vect
 
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
-	for (size_t i = 0; i < dataset.size(); ++i) {
-		if (i != dataset.size() - 1) {
-			assert(dataset[i].width == dataset[i+1].width);
-			assert(dataset[i].height == dataset[i+1].height);
+	for (int i = 0; i < dataset.size(); ++i) {
+		if ((dataset[0].width != dataset[i].width) || (dataset[0].height != dataset[i].height)) {
+			throw invalid_argument("Die Dateien haben nicht die gleiche Größe!");
 		}
 	}
 	const size_t nImages = dataset.size();
@@ -122,17 +108,23 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	cout << "Calculating ... (" << parallelism << " threads)\n";
 
+	//check if height and width are even numbers
+	const size_t heightCalc = height % 2 != 0 ? height - 1 : height;
+	const size_t widthCalc = width % 2 != 0 ? width - 1 : width;
+
+	const size_t sizeRatio = static_cast<double>(heightCalc) / widthCalc;
+
 	vector<Mat> rotY;
 	for (int x = 0; x < width; x++) {
-		rotY.push_back(matRotY(correctionFactor, x, width));
+		rotY.push_back(correctiveRotationY(correctionFactor, x, width));
 	}
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = matRotX(correctionFactor, y, height, width);
+		const Mat rotX = correctiveRotationX(correctionFactor, y, height, sizeRatio);
 		
 		future<vector<double>> future = pool.enqueue(
-			[y, width, height, nImages, correctionFactor, &dataset, &L_inverseTransposed, rotX, &rotY] {
+			[y, width, nImages, &dataset, &L_inverseTransposed, rotX, &rotY] {
 				
 				vector<double> row;
 				row.reserve(width * 3);
@@ -150,11 +142,9 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					++index;
 
 					// This is what you saw in the paper by Woodham (1980).
-					
 					const Vec n = L_inverseTransposed * Vec{ reflections };
 
 					const Vec normal = orientationCorrection(n, x, rotX, rotY).normalize();
-					//cout << normal[0] << "  " << normal[1] << "  " << normal[2] <<"\n";
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
 					row.push_back(normal[2]);
@@ -179,9 +169,6 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 }
 
 int main(int argc, char* argv[]) {
-	double time1 = 0.0, tstart;     
-	tstart = clock();       
-		
 	if (argc != 4) {
 		cerr << "Pass a path to the dataset, path for the result and a factor for correction." << '\n';
 		return EXIT_FAILURE;
@@ -199,6 +186,8 @@ int main(int argc, char* argv[]) {
 		cerr << e.what() << '\n';
 		return EXIT_FAILURE;
 	}
+	
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
 	const NormalMap nmap = photometricStereo(dataset, correctionFactor);
 
@@ -210,9 +199,8 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	
-	time1 += clock() - tstart;
-	time1 = time1 / CLOCKS_PER_SEC;
-	cout << "  time = " << time1 << " sec.";
-
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+	std::cout << "Time difference (sec) = " << (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) / 1000000.0 << std::endl;
+	
 	return EXIT_SUCCESS;
 }
