@@ -22,12 +22,13 @@ using std::cos;
 using std::future;
 
 #include <chrono>
+using namespace std::chrono;
+//::steady_clock::time_point;
 
-Mat correctiveRotationX(const double factor, const int y, const size_t height, const size_t sizeRatio) {
+Mat correctiveRotationX(const double degrees, const int y, const size_t height, const size_t sizeRatio, const double addFactor) {
 
-	const double rotFacX = factor * sizeRatio;
-	const double degX = (static_cast<double>(y) / (height-1) * 2.0 - 1.0) * rotFacX;
-	const double radX = degreesToRadians(degX);
+	const double rotFacX = degrees * sizeRatio;
+	const double radX = addFactor * rotFacX;
 
 	const double cos_radX = cos(radX);
 	const double sin_radX = sin(radX);
@@ -40,11 +41,9 @@ Mat correctiveRotationX(const double factor, const int y, const size_t height, c
 	return rotX;
 }
 
-Mat correctiveRotationY(const double factor, const int x, const size_t width) {
+Mat correctiveRotationY(const double degrees, const int x, const size_t width, const double addFactor) {
 
-	const double rotFacY = factor;
-	const double degY = (static_cast<double>(x) / (width - 1) * 2.0 - 1.0) * rotFacY;
-	const double radY = degreesToRadians(degY);
+	const double radY = addFactor * degrees;
 
 	const double cos_radY = cos(radY);
 	const double sin_radY = sin(radY);
@@ -58,19 +57,8 @@ Mat correctiveRotationY(const double factor, const int x, const size_t width) {
 }
 
 
-Vec orientationCorrection(const Vec& v, const int x, const Mat& rotX, const vector<Mat>& rotY)
-{
-	return rotX * (rotY[x] * v);
-}
-
-
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
-	for (int i = 0; i < dataset.size(); ++i) {
-		if ((dataset[0].width != dataset[i].width) || (dataset[0].height != dataset[i].height)) {
-			throw invalid_argument("Die Dateien haben nicht die gleiche Größe!");
-		}
-	}
 	const size_t nImages = dataset.size();
 	const size_t width = dataset[0].width;
 	const size_t height = dataset[0].height;
@@ -114,15 +102,34 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	const size_t sizeRatio = static_cast<double>(heightCalc) / widthCalc;
 
+	//width and height are scaled into [-1, 1].
+	// Es werden die ersten beiden werte für die Faktoren berechnet. 
+	// Mit dieser Rechnung finden wir heraus, wie die Differenz bzw. der Abtand zwischen zwei nebeneinanderliegenden Pixeln ist.  
+	// Da die Differenz immer gleich bleibt, können wir durch eine Addition der Differenz pro Pixel bestimmen, 
+	// wie sehr sich die Korrektur der Normalen auf jeden Pixel auswirkt.
+
+	const double firstPixelCorrectionValueX = -1;
+	const double secondPixelCorrectionValueX = ((static_cast<double>(1) / (height - 1)) * 2 - 1);
+	const double factorX = secondPixelCorrectionValueX - firstPixelCorrectionValueX;
+
+	const double firstPixelCorrectionValueY = -1;
+	const double secondPixelCorrectionValueY = ((static_cast<double>(1) / (width - 1)) * 2 - 1);
+	const double factorY = secondPixelCorrectionValueY - firstPixelCorrectionValueY;
+
+	double addFactorX = -1;
+	double addFactorY = -1;
+	
 	vector<Mat> rotY;
 	for (int x = 0; x < width; x++) {
-		rotY.push_back(correctiveRotationY(correctionFactor, x, width));
+		rotY.push_back(correctiveRotationY(correctionFactor, x, width, addFactorY));
+		addFactorY += factorY;
 	}
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = correctiveRotationX(correctionFactor, y, height, sizeRatio);
-		
+		const Mat rotX = correctiveRotationX(correctionFactor, y, height, sizeRatio, addFactorX);
+		addFactorX += factorX;
+
 		future<vector<double>> future = pool.enqueue(
 			[y, width, nImages, &dataset, &L_inverseTransposed, rotX, &rotY] {
 				
@@ -143,8 +150,10 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 					// This is what you saw in the paper by Woodham (1980).
 					const Vec n = L_inverseTransposed * Vec{ reflections };
-
-					const Vec normal = orientationCorrection(n, x, rotX, rotY).normalize();
+					
+					//orientation correction
+					const Vec normal = (rotX * (rotY[x] * n)).normalize();
+				
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
 					row.push_back(normal[2]);
@@ -177,7 +186,7 @@ int main(int argc, char* argv[]) {
 	vector<ReflectionMap> dataset;
 	const string datasetDirectory{ argv[1] };
 	const string outNormalMap{ argv[2] };
-	const double correctionFactor = std::stoi(argv[3]);
+	const double correctionDegree = degreesToRadians(std::stoi(argv[3]));
 
 	try {
 		dataset = readDataset(datasetDirectory);
@@ -187,9 +196,9 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	
-	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+	steady_clock::time_point begin = steady_clock::now();
 
-	const NormalMap nmap = photometricStereo(dataset, correctionFactor);
+	const NormalMap nmap = photometricStereo(dataset, correctionDegree);
 
 	try {
 		writeNormalMap(nmap, outNormalMap);
@@ -199,8 +208,8 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-	std::cout << "Time difference (sec) = " << (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) / 1000000.0 << std::endl;
+	steady_clock::time_point end = steady_clock::now();
+	cout << "Calculation Time Normalmap (sec) = " << (duration_cast<microseconds>(end - begin).count()) / 1000000.0 << std::endl;
 	
 	return EXIT_SUCCESS;
 }
