@@ -22,13 +22,13 @@ using std::cos;
 using std::future;
 
 #include <chrono>
-using namespace std::chrono;
-//::steady_clock::time_point;
+using std::chrono::steady_clock;
+using std::chrono::duration_cast;
+using std::chrono::microseconds;
 
-Mat correctiveRotationX(const double degrees, const int y, const size_t height, const size_t sizeRatio, const double addFactor) {
+Mat correctiveRotationX(const double radians, const int y, const size_t height, const double addFactor) {
 
-	const double rotFacX = degrees * sizeRatio;
-	const double radX = addFactor * rotFacX;
+	const double radX = addFactor * radians;
 
 	const double cos_radX = cos(radX);
 	const double sin_radX = sin(radX);
@@ -41,9 +41,9 @@ Mat correctiveRotationX(const double degrees, const int y, const size_t height, 
 	return rotX;
 }
 
-Mat correctiveRotationY(const double degrees, const int x, const size_t width, const double addFactor) {
+Mat correctiveRotationY(const double radians, const int x, const size_t width, const double addFactor) {
 
-	const double radY = addFactor * degrees;
+	const double radY = addFactor * radians;
 
 	const double cos_radY = cos(radY);
 	const double sin_radY = sin(radY);
@@ -127,7 +127,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = correctiveRotationX(correctionFactor, y, height, sizeRatio, addFactorX);
+		const Mat rotX = correctiveRotationX(correctionFactor*sizeRatio, y, height, addFactorX);
 		addFactorX += factorX;
 
 		future<vector<double>> future = pool.enqueue(
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
 	vector<ReflectionMap> dataset;
 	const string datasetDirectory{ argv[1] };
 	const string outNormalMap{ argv[2] };
-	const double correctionDegree = degreesToRadians(std::stoi(argv[3]));
+	const double correctionRadians = degreesToRadians(std::stoi(argv[3]));
 
 	try {
 		dataset = readDataset(datasetDirectory);
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 	
 	steady_clock::time_point begin = steady_clock::now();
 
-	const NormalMap nmap = photometricStereo(dataset, correctionDegree);
+	const NormalMap nmap = photometricStereo(dataset, correctionRadians);
 
 	try {
 		writeNormalMap(nmap, outNormalMap);
