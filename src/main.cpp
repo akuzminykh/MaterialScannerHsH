@@ -60,6 +60,13 @@ Vec orientationCorrection(const Vec& v, const double factor,
 	return rotX * (rotY * v);
 }
 
+//breite 300 höhe 200 licht dist 40
+Vec correctNormal(Vec lightPositionfromCenter, const float uv_x, const float uv_y, 
+	const float scanArea_x, const float scanArea_y)
+{
+	Vec pixelPos = Vec( (uv_x - 0.5f) * scanArea_x, (uv_y - 0.5f) * scanArea_y, 0.0f);
+	return (lightPositionfromCenter - pixelPos);
+}
 
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 

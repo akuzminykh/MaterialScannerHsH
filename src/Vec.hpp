@@ -20,6 +20,17 @@ struct Vec {
 
 	double operator[](const int i) const { return data[i]; }
 
+	Vec operator-(const Vec& b) const { 
+		if (this->n == b.n)
+		{
+			std::vector<double> _data;
+			for (int i = 0; i < n; i++)
+			{
+				_data.push_back(data[i] - b.data[i]);
+			}
+			return Vec(_data);
+		}
+	};
 
 	double length() const {
 		double sum = 0.0;

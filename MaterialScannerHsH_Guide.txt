@@ -38,7 +38,7 @@ Mögliche Probleme:
 An dieser Stelle sollte Visual Studio neugestartet und "Build -> Build Solution" ausgeführt werden.
 Im Ordner "x64/Release" sollte nun "MaterialScannerHsH.exe" zu finden sein. Zum Ausprobieren, im Ordner diesen Befehl ausführen:
 
-.\MaterialScannerHsH.exe ..\..\datasets\object1\ test.jpg 15
+./MaterialScannerHsH.exe ../../datasets/object1/ test.jpg 15
 
 Im Ordner sollte nun ein Bild zu finden sein, dass die Normalmap für den angegebenen Datensatz darstellt.
 Wenn das der Fall ist, dann hast Du diesen Guide erfolgreich überlebt! :)

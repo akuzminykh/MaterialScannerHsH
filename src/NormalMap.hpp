@@ -27,4 +27,5 @@ struct NormalMap {
 		assert(normalsData.size() == width * height * 3);
 		assert(allNormalized(normalsData));
 	}
+
 };
