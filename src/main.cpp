@@ -102,33 +102,39 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	const size_t sizeRatio = static_cast<double>(heightCalc) / widthCalc;
 
-	//width and height are scaled into [-1, 1].
-	// Es werden die ersten beiden werte für die Faktoren berechnet. 
-	// Mit dieser Rechnung finden wir heraus, wie die Differenz bzw. der Abtand zwischen zwei nebeneinanderliegenden Pixeln ist.  
-	// Da die Differenz immer gleich bleibt, können wir durch eine Addition der Differenz pro Pixel bestimmen, 
-	// wie sehr sich die Korrektur der Normalen auf jeden Pixel auswirkt.
 
-	const double firstPixelCorrectionValueX = -1;
-	const double secondPixelCorrectionValueX = ((static_cast<double>(1) / (height - 1)) * 2 - 1);
-	const double factorX = secondPixelCorrectionValueX - firstPixelCorrectionValueX;
+	// width and height of the image are scaled into [-1, 1].
+	// that means the first pixel in x-axis / y-axis is always -1; 
+	// we determine the distance between 2 pixels
+	// the distance information is used to determine the correction intensity for each pixel
 
-	const double firstPixelCorrectionValueY = -1;
-	const double secondPixelCorrectionValueY = ((static_cast<double>(1) / (width - 1)) * 2 - 1);
-	const double factorY = secondPixelCorrectionValueY - firstPixelCorrectionValueY;
+	// Pixel at Position 0 in x-axis
+	const double firstPixelPosX = -1;
 
-	double addFactorX = -1;
-	double addFactorY = -1;
+	// Pixel at Position 1 in x-axis
+	const double secondPixelPosX = ((static_cast<double>(1) / (height - 1)) * 2 - 1);
+	const double distanceBetweenPixelsX = secondPixelPosX - firstPixelPosX;
+
+	const double firstPixelPosY = -1;
+	const double secondPixelPosY = ((static_cast<double>(1) / (width - 1)) * 2 - 1);
+	const double distanceBetweenPixelsY = secondPixelPosY - firstPixelPosY;
+
+	// -1 and 1 have the same correction intensity, whereas the mathematical sign influences the 'intensity's direction'
+	// intensity value of -1 and 1 have the strongest intensity and a value of 0 has no intensity
+	// -> the further the pixel is away from the center, the higher the correction intensity is 
+	double correctionIntesityX = -1;
+	double correctionIntensityY = -1;
 	
 	vector<Mat> rotY;
 	for (int x = 0; x < width; x++) {
-		rotY.push_back(correctiveRotationY(correctionFactor, x, width, addFactorY));
-		addFactorY += factorY;
+		rotY.push_back(correctiveRotationY(correctionFactor, x, width, correctionIntensityY));
+		correctionIntensityY += distanceBetweenPixelsY;
 	}
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = correctiveRotationX(correctionFactor*sizeRatio, y, height, addFactorX);
-		addFactorX += factorX;
+		const Mat rotX = correctiveRotationX(correctionFactor*sizeRatio, y, height, correctionIntesityX);
+		correctionIntesityX += distanceBetweenPixelsX;
 
 		future<vector<double>> future = pool.enqueue(
 			[y, width, nImages, &dataset, &L_inverseTransposed, rotX, &rotY] {
