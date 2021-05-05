@@ -118,6 +118,15 @@ Mat Mat::rotationY(const double radY) {
 }
 
 
+bool Mat::operator==(const Mat& other) const {
+	if (N == other.N && M == other.M) {
+		return data == other.data;
+	}
+	return false;
+}
+
+
+
 Mat Mat::operator*(const Mat& other) const {
 	assert(N == other.M);
 	vector<double> v;

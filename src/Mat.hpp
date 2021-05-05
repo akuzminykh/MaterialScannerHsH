@@ -37,8 +37,9 @@ struct Mat {
 	Mat inverse() const;
 
 	static Mat rotationX(const double radX);
-	static Mat rotationY(const double radX);
+	static Mat rotationY(const double radY);
 
+	bool operator==(const Mat& other) const;
 	Mat operator*(const Mat& other) const;
 	Vec operator*(const Vec& v) const;
 };
