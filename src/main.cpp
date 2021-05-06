@@ -206,6 +206,9 @@ int main(int argc, char* argv[]) {
 
 	const NormalMap nmap = photometricStereo(dataset, correctionRadians);
 
+	steady_clock::time_point end = steady_clock::now();
+	cout << "Calculation Time Normalmap (sec) = " << (duration_cast<microseconds>(end - begin).count()) / 1000000.0 << std::endl;
+
 	try {
 		writeNormalMap(nmap, outNormalMap);
 	}
@@ -213,9 +216,6 @@ int main(int argc, char* argv[]) {
 		cerr << e.what() << '\n';
 		return EXIT_FAILURE;
 	}
-	
-	steady_clock::time_point end = steady_clock::now();
-	cout << "Calculation Time Normalmap (sec) = " << (duration_cast<microseconds>(end - begin).count()) / 1000000.0 << std::endl;
 	
 	return EXIT_SUCCESS;
 }
