@@ -26,36 +26,6 @@ using std::chrono::steady_clock;
 using std::chrono::duration_cast;
 using std::chrono::microseconds;
 
-Mat correctiveRotationX(const double radians, const size_t height, const double addFactor) {
-
-	const double radX = addFactor * radians;
-
-	const double cos_radX = cos(radX);
-	const double sin_radX = sin(radX);
-
-	Mat rotX{
-		1.0, 0.0,		0.0,
-		0.0, cos_radX,	-sin_radX,
-		0.0, sin_radX,	cos_radX
-	};
-	return rotX;
-}
-
-Mat correctiveRotationY(const double radians, const size_t width, const double addFactor) {
-
-	const double radY = addFactor * radians;
-
-	const double cos_radY = cos(radY);
-	const double sin_radY = sin(radY);
-
-	Mat rotY{
-		cos_radY,	0.0, sin_radY,
-		0.0,		1.0, 0.0,
-		-sin_radY,	0.0, cos_radY
-	};
-	return rotY;
-}
-
 
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
@@ -127,13 +97,13 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 	
 	vector<Mat> rotY;
 	for (int x = 0; x < width; x++) {
-		rotY.push_back(correctiveRotationY(correctionFactor, width, correctionIntensityY));
+		rotY.push_back( Mat::rotationY(correctionFactor * correctionIntensityY));
 		correctionIntensityY += distanceBetweenPixelsY;
 	}
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = correctiveRotationX(correctionFactor*sizeRatio, height, correctionIntesityX);
+		const Mat rotX = Mat::rotationX(correctionFactor * sizeRatio *correctionIntesityX);
 		correctionIntesityX += distanceBetweenPixelsX;
 
 		future<vector<double>> future = pool.enqueue(

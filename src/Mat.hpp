@@ -36,6 +36,9 @@ struct Mat {
 	Mat transpose() const;
 	Mat inverse() const;
 
+	static Mat rotationX(const double radX);
+	static Mat rotationY(const double radX);
+
 	Mat operator*(const Mat& other) const;
 	Vec operator*(const Vec& v) const;
 };

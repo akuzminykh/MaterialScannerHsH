@@ -93,6 +93,30 @@ Mat Mat::inverse() const {
 	return Mat{ M, N, newValues };
 }
 
+Mat Mat::rotationX(const double radX) {
+	const double cos_radX = cos(radX);
+	const double sin_radX = sin(radX);
+
+	Mat rotX{
+		1.0, 0.0,		0.0,
+		0.0, cos_radX,	-sin_radX,
+		0.0, sin_radX,	cos_radX
+	};
+	return rotX;
+}
+
+Mat Mat::rotationY(const double radY) {
+	const double cos_radY = cos(radY);
+	const double sin_radY = sin(radY);
+
+	Mat rotY{
+		cos_radY,	0.0, sin_radY,
+		0.0,		1.0, 0.0,
+		-sin_radY,	0.0, cos_radY
+	};
+	return rotY;
+}
+
 
 Mat Mat::operator*(const Mat& other) const {
 	assert(N == other.M);
