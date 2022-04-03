@@ -56,6 +56,12 @@ vector<ReflectionMap> readDataset(const string& dir) {
 		dataset.push_back(readIntensities(item));
 	}
 
+	for (int i = 1; i < dataset.size(); ++i) {
+		if ((dataset[0].width != dataset[i].width) || (dataset[0].height != dataset[i].height)) {
+			throw invalid_argument("The files are not the same size!");
+		}
+	}
+
 	return dataset;
 }
 
