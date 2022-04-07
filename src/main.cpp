@@ -26,36 +26,63 @@ using std::chrono::steady_clock;
 using std::chrono::duration_cast;
 using std::chrono::microseconds;
 
-Mat correctiveRotationX(const double radians, const size_t height, const double addFactor) {
+// width and height of the image are scaled into [-1, 1].
+// that means the first pixel in x-axis / y-axis is always -1; 
+double distanceBetweenPixelPair(const size_t& length) {
 
-	const double radX = addFactor * radians;
+	// Pixel at Position 0
+	const double firstPixelPos = -1;
 
-	const double cos_radX = cos(radX);
-	const double sin_radX = sin(radX);
+	// Pixel at Position 1 
+	const double secondPixelPos = ((static_cast<double>(1) / (length - 1)) * 2 - 1);
+	const double distanceBetweenPixels = secondPixelPos - firstPixelPos;
 
-	Mat rotX{
-		1.0, 0.0,		0.0,
-		0.0, cos_radX,	-sin_radX,
-		0.0, sin_radX,	cos_radX
-	};
-	return rotX;
+	return distanceBetweenPixels;
 }
 
-Mat correctiveRotationY(const double radians, const size_t width, const double addFactor) {
+vector<Mat> correctionMatricesX(const size_t& height, const double scaledCorrectionFactor) {
 
-	const double radY = addFactor * radians;
+	vector<Mat> correctionMatricesX;
+	const double distanceBetweenPixelsX = distanceBetweenPixelPair(height);
+	double correctionIntensityX = -1;
+	for (int y = 0; y < height; y++) {
+		correctionMatricesX.push_back(Mat::rotationX(scaledCorrectionFactor * correctionIntensityX));
+		correctionIntensityX += distanceBetweenPixelsX;
+	}
 
-	const double cos_radY = cos(radY);
-	const double sin_radY = sin(radY);
+	return correctionMatricesX;
 
-	Mat rotY{
-		cos_radY,	0.0, sin_radY,
-		0.0,		1.0, 0.0,
-		-sin_radY,	0.0, cos_radY
-	};
-	return rotY;
 }
 
+vector<Mat> correctionMatricesY(const size_t& width, const double correctionFactor) {
+
+	vector<Mat> correctionMatricesY;
+
+	// we determine the distance between 2 pixels
+	// the distance information is used to determine the correction intensity for each pixel
+	const double distanceBetweenPixelsY = distanceBetweenPixelPair(width);
+
+	// -1 and 1 have the same correction intensity, whereas the mathematical sign influences the 'intensity's direction'
+	// intensity value of -1 and 1 have the strongest intensity and a value of 0 has no intensity
+	// -> the further the pixel is away from the center, the higher the correction intensity is 
+	double correctionIntensityY = -1;
+	for (int x = 0; x < width; x++) {
+		correctionMatricesY.push_back(Mat::rotationY(correctionFactor * correctionIntensityY));
+		correctionIntensityY += distanceBetweenPixelsY;
+	}
+
+	return correctionMatricesY;
+
+}
+
+double calcSizeRatio(const size_t& height, const size_t& width) {
+	//check if height and width are even numbers
+	const size_t heightCalc = height % 2 != 0 ? height - 1 : height;
+	const size_t widthCalc = width % 2 != 0 ? width - 1 : width;
+
+	const double sizeRatio = static_cast<double>(heightCalc) / widthCalc;
+	return sizeRatio;
+}
 
 NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double correctionFactor) {
 
@@ -96,48 +123,14 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 
 	cout << "Calculating ... (" << parallelism << " threads)\n";
 
-	//check if height and width are even numbers
-	const size_t heightCalc = height % 2 != 0 ? height - 1 : height;
-	const size_t widthCalc = width % 2 != 0 ? width - 1 : width;
-
-	const double sizeRatio = static_cast<double>(heightCalc) / widthCalc;
-
-
-	// width and height of the image are scaled into [-1, 1].
-	// that means the first pixel in x-axis / y-axis is always -1; 
-	// we determine the distance between 2 pixels
-	// the distance information is used to determine the correction intensity for each pixel
-
-	// Pixel at Position 0 in x-axis
-	const double firstPixelPosX = -1;
-
-	// Pixel at Position 1 in x-axis
-	const double secondPixelPosX = ((static_cast<double>(1) / (height - 1)) * 2 - 1);
-	const double distanceBetweenPixelsX = secondPixelPosX - firstPixelPosX;
-
-	const double firstPixelPosY = -1;
-	const double secondPixelPosY = ((static_cast<double>(1) / (width - 1)) * 2 - 1);
-	const double distanceBetweenPixelsY = secondPixelPosY - firstPixelPosY;
-
-	// -1 and 1 have the same correction intensity, whereas the mathematical sign influences the 'intensity's direction'
-	// intensity value of -1 and 1 have the strongest intensity and a value of 0 has no intensity
-	// -> the further the pixel is away from the center, the higher the correction intensity is 
-	double correctionIntesityX = -1;
-	double correctionIntensityY = -1;
 	
-	vector<Mat> rotY;
-	for (int x = 0; x < width; x++) {
-		rotY.push_back(correctiveRotationY(correctionFactor, width, correctionIntensityY));
-		correctionIntensityY += distanceBetweenPixelsY;
-	}
+	vector<Mat> rotY = correctionMatricesY(width, correctionFactor);
+	vector<Mat> rotX = correctionMatricesX(height, correctionFactor * calcSizeRatio(height, width));
 
 	for (int y = 0; y < height; ++y) {
 
-		const Mat rotX = correctiveRotationX(correctionFactor*sizeRatio, height, correctionIntesityX);
-		correctionIntesityX += distanceBetweenPixelsX;
-
 		future<vector<double>> future = pool.enqueue(
-			[y, width, nImages, &dataset, &L_inverseTransposed, rotX, &rotY] {
+			[y, width, nImages, &dataset, &L_inverseTransposed, &rotX, &rotY] {
 				
 				vector<double> row;
 				row.reserve(width * 3);
@@ -158,7 +151,7 @@ NormalMap photometricStereo(const vector<ReflectionMap>& dataset, const double c
 					const Vec n = L_inverseTransposed * Vec{ reflections };
 					
 					//orientation correction
-					const Vec normal = (rotX * (rotY[x] * n)).normalize();
+					const Vec normal = (rotX[y] * (rotY[x] * n)).normalize();
 				
 					row.push_back(normal[0]);
 					row.push_back(normal[1]);
@@ -206,6 +199,9 @@ int main(int argc, char* argv[]) {
 
 	const NormalMap nmap = photometricStereo(dataset, correctionRadians);
 
+	steady_clock::time_point end = steady_clock::now();
+	cout << "Calculation Time Normalmap (sec) = " << (duration_cast<microseconds>(end - begin).count()) / 1000000.0 << std::endl;
+
 	try {
 		writeNormalMap(nmap, outNormalMap);
 	}
@@ -213,9 +209,6 @@ int main(int argc, char* argv[]) {
 		cerr << e.what() << '\n';
 		return EXIT_FAILURE;
 	}
-	
-	steady_clock::time_point end = steady_clock::now();
-	cout << "Calculation Time Normalmap (sec) = " << (duration_cast<microseconds>(end - begin).count()) / 1000000.0 << std::endl;
 	
 	return EXIT_SUCCESS;
 }
